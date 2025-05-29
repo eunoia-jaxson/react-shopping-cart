@@ -11669,7 +11669,7 @@ const ErrorContextProvider = ({ children }) => {
   ] });
 };
 function App() {
-  return /* @__PURE__ */ jsx$1(ErrorContextProvider, { children: /* @__PURE__ */ jsx$1(ApiProvider, { children: /* @__PURE__ */ jsx$1("div", { css: RoutesStyle, children: /* @__PURE__ */ jsx$1(BrowserRouter, { children: /* @__PURE__ */ jsxs(Routes, { children: [
+  return /* @__PURE__ */ jsx$1(ErrorContextProvider, { children: /* @__PURE__ */ jsx$1(ApiProvider, { children: /* @__PURE__ */ jsx$1("div", { css: RoutesStyle, children: /* @__PURE__ */ jsx$1(BrowserRouter, { basename: "/react-shopping-cart", children: /* @__PURE__ */ jsxs(Routes, { children: [
     /* @__PURE__ */ jsx$1(Route, { path: "/", element: /* @__PURE__ */ jsx$1(CartPage, {}) }),
     /* @__PURE__ */ jsx$1(Route, { path: "/order", element: /* @__PURE__ */ jsx$1(OrderPage, {}) })
   ] }) }) }) }) });
