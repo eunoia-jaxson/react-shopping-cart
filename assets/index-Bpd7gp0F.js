@@ -11165,11 +11165,11 @@ const cartItemPriceCss = css({
   fontSize: "24px",
   fontWeight: "bold"
 });
-function Stepper({ value, onIncrement, onDecrement }) {
+function Stepper({ value, onIncrement, onDecrement, disabled }) {
   return /* @__PURE__ */ jsxs("div", { css: stepperWrapper, "data-testid": "stepper", children: [
-    /* @__PURE__ */ jsx$1("button", { onClick: onDecrement, children: /* @__PURE__ */ jsx$1("img", { src: "assets/minus.svg", alt: "마이너스 버튼" }) }),
+    /* @__PURE__ */ jsx$1("button", { css: buttonCss$1, onClick: onDecrement, disabled, children: "-" }),
     /* @__PURE__ */ jsx$1("span", { css: valueCss, children: value }),
-    /* @__PURE__ */ jsx$1("button", { onClick: onIncrement, children: /* @__PURE__ */ jsx$1("img", { src: "assets/plus.svg", alt: "플러스 버튼" }) })
+    /* @__PURE__ */ jsx$1("button", { css: buttonCss$1, onClick: onIncrement, disabled, children: "+" })
   ] });
 }
 const stepperWrapper = css({
@@ -11181,22 +11181,115 @@ const valueCss = css({
   fontSize: "12px",
   fontWeight: 500
 });
-function RemoveButton(props) {
-  return /* @__PURE__ */ jsx$1("button", { css: inCartCss, ...props, children: /* @__PURE__ */ jsx$1("span", { children: "삭제" }) });
-}
-const inCartCss = css({
-  color: "black",
-  border: " 1px solid rgba(0, 0, 0, 0.10)",
-  fontSize: "12px",
+const buttonCss$1 = css({
+  backgroundColor: "white",
+  border: "1px solid #eaeaea",
   borderRadius: "4px",
+  cursor: "pointer",
+  width: "24px",
   height: "24px",
-  padding: "4px 8px",
-  justifyContent: "center"
+  "&:hover": {
+    backgroundColor: "#eaeaea"
+  },
+  "&:disabled": {
+    backgroundColor: "#BEBEBE",
+    cursor: "not-allowed"
+  }
 });
+function RemoveButton(props) {
+  return /* @__PURE__ */ jsx$1("button", { css: buttonCss, ...props, children: "삭제" });
+}
+const buttonCss = css({
+  backgroundColor: "white",
+  border: "1px solid #eaeaea",
+  borderRadius: "4px",
+  cursor: "pointer",
+  fontSize: "12px",
+  width: "40px",
+  height: "24px",
+  "&:hover": {
+    backgroundColor: "#eaeaea"
+  },
+  "&:disabled": {
+    backgroundColor: "#BEBEBE",
+    cursor: "not-allowed"
+  }
+});
+const toastCss = (type) => css({
+  background: type === "error" ? "#FFC9C9" : "#C9FFC9",
+  width: "382px",
+  padding: "12px 20px",
+  margin: "0 auto",
+  marginTop: "32px",
+  borderRadius: "8px",
+  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+  position: "fixed",
+  top: "20px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  zIndex: 1e3,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  opacity: 1,
+  transition: "opacity 0.3s ease-in-out"
+});
+const messageCss = (type) => css({
+  margin: 0,
+  fontSize: "16px",
+  fontWeight: "500",
+  color: type === "error" ? "#D63031" : "#000"
+});
+const closeButtonCss = (type) => css({
+  background: "none",
+  border: "none",
+  color: type === "error" ? "#D63031" : "#000",
+  cursor: "pointer",
+  fontSize: "18px",
+  padding: "0 0 0 10px"
+});
+function Toast({ message, type, onClose }) {
+  return /* @__PURE__ */ jsxs("div", { css: toastCss(type), children: [
+    /* @__PURE__ */ jsx$1("h2", { css: messageCss(type), children: message }),
+    /* @__PURE__ */ jsx$1("button", { css: closeButtonCss(type), onClick: onClose, children: "✕" })
+  ] });
+}
+const ToastContext = reactExports.createContext(null);
+function ToastProvider({ children }) {
+  const [toasts, setToasts] = reactExports.useState([]);
+  const removeToast = reactExports.useCallback((id2) => {
+    setToasts((prev2) => prev2.filter((t2) => t2.id !== id2));
+  }, []);
+  const addToast = reactExports.useCallback(
+    (opts) => {
+      const id2 = Date.now();
+      setToasts((prev2) => [...prev2, { id: id2, ...opts }]);
+      setTimeout(() => {
+        removeToast(id2);
+      }, 3e3);
+    },
+    [removeToast]
+  );
+  return /* @__PURE__ */ jsxs(ToastContext.Provider, { value: { addToast }, children: [
+    children,
+    toasts.map((toast) => /* @__PURE__ */ jsx$1(Toast, { message: toast.message, type: toast.type, onClose: () => removeToast(toast.id) }, toast.id))
+  ] });
+}
+function useToast() {
+  const context = reactExports.useContext(ToastContext);
+  if (!context) {
+    throw new Error("useToast must be used within a ToastProvider");
+  }
+  return context;
+}
 const BASE_URL = "http://techcourse-lv2-alb-974870821.ap-northeast-2.elb.amazonaws.com";
 const URLS = {
   CART_ITEMS: `${BASE_URL}/cart-items`,
   PRODUCTS: `${BASE_URL}/products`
+};
+const headers = {
+  Authorization: `Basic ${btoa(`${"eunoia-jaxson"}:${"password"}`)}`,
+  "Content-Type": "application/json"
 };
 const patchCartItem = async (cartItemId, quantity) => {
   if (cartItemId === void 0) {
@@ -11204,54 +11297,99 @@ const patchCartItem = async (cartItemId, quantity) => {
   }
   const result = await fetch(`${URLS.CART_ITEMS}/${cartItemId}`, {
     method: "PATCH",
-    headers: {
-      Authorization: `Basic ${btoa(`${"eunoia-jaxson"}:${"password"}`)}`,
-      "Content-Type": "application/json"
-    },
+    headers,
     body: JSON.stringify({
       quantity
     })
   });
   if (!result.ok) {
-    throw new Error("장바구니에서 상품 수량을 수정하는데 실패했습니다");
+    throw new Error("상품 수량을 수정하는 데 실패했습니다.");
+  }
+};
+function useMutation(fn) {
+  const [data, setData] = reactExports.useState(null);
+  const [isLoading, setIsLoading] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const mutate = reactExports.useCallback(
+    async (vars) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await fn(vars);
+        setData(response);
+        return response;
+      } catch (err) {
+        const thrown = err instanceof Error ? err : new Error(String(err));
+        setError(thrown);
+        throw thrown;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fn]
+  );
+  return { mutate, data, isLoading, error };
+}
+const deleteCartItem = async (cartItemId) => {
+  if (cartItemId === void 0) {
+    throw new Error("cartItemId가 정의되지 않았습니다.");
+  }
+  const res = await fetch(`${URLS.CART_ITEMS}/${cartItemId}`, {
+    method: "DELETE",
+    headers
+  });
+  if (!res.ok) {
+    throw new Error("상품을 삭제하는 데 실패했습니다.");
   }
 };
 const ApiContext = reactExports.createContext({
   data: {},
-  setData: () => {
+  setDataState: () => {
   }
 });
 function ApiProvider({ children }) {
   const [data, setData] = reactExports.useState({});
-  return /* @__PURE__ */ jsx$1(ApiContext.Provider, { value: { data, setData }, children });
+  const setDataState = (updater) => {
+    setData((prev2) => updater(prev2));
+  };
+  return /* @__PURE__ */ jsx$1(ApiContext.Provider, { value: { data, setDataState }, children });
 }
-function useApiContext({
-  fetchFn,
-  key,
-  deps
-}) {
-  const { data, setData } = reactExports.useContext(ApiContext);
+const TTL = 5 * 60 * 1e3;
+function useApiContext({ fetchFn, key }) {
+  var _a;
+  const { data, setDataState } = reactExports.useContext(ApiContext);
   const [isLoading, setIsLoading] = reactExports.useState(false);
   const [error, setError] = reactExports.useState(null);
+  const { addToast } = useToast();
   const request = reactExports.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await fetchFn();
-      setData((prev2) => ({ ...prev2, [key]: res }));
+      setDataState((prev2) => ({
+        ...prev2,
+        [key]: { value: res, fetchedAt: Date.now() }
+      }));
     } catch (e2) {
-      setError(e2 instanceof Error ? e2 : new Error("Unknown error"));
+      setError(e2 instanceof Error ? e2 : new Error("알 수 없는 에러가 발생했습니다."));
+      addToast({ message: e2 instanceof Error ? e2.message : "알 수 없는 에러가 발생했습니다.", type: "error" });
     } finally {
       setIsLoading(false);
     }
-  }, [fetchFn, key, setData]);
+  }, [fetchFn, key, setDataState, addToast]);
   reactExports.useEffect(() => {
-    if (data[key] === void 0) {
+    const cached = data[key];
+    if (cached) {
+      const age = Date.now() - cached.fetchedAt;
+      if (age > TTL) {
+        request();
+      }
+    } else {
       request();
     }
-  }, [data, key, request, deps]);
+  }, [data, key, request]);
   return {
-    data: data[key],
+    data: (_a = data[key]) == null ? void 0 : _a.value,
     isLoading,
     error,
     fetcher: request
@@ -11259,52 +11397,94 @@ function useApiContext({
 }
 const getCartItems = async () => {
   const res = await fetch(URLS.CART_ITEMS, {
-    headers: {
-      Authorization: `Basic ${btoa(`${"eunoia-jaxson"}:${"password"}`)}`,
-      "Content-Type": "application/json"
-    }
+    headers
   });
   if (!res.ok) {
     throw new Error("장바구니 데이터를 불러오는 데 실패했습니다.");
   }
   return res.json();
 };
-const deleteCartItem = async (cartItemId) => {
-  if (cartItemId === void 0) {
-    throw new Error("cartItemId가 정의되지 않았습니다.");
-  }
-  const res = await fetch(`${URLS.CART_ITEMS}/${cartItemId}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Basic ${btoa(`${"eunoia-jaxson"}:${"password"}`)}`,
-      "Content-Type": "application/json"
-    }
-  });
-  if (!res.ok) {
-    throw new Error("장바구니에서 상품을 삭제하는 데 실패했습니다.");
-  }
-  return res;
+const useCartItems = () => {
+  return useApiContext({ fetchFn: getCartItems, key: "getCartItems" });
 };
-function CartItem({ item, handleCheckBoxChange, checked }) {
+function useCartActions() {
+  const { addToast } = useToast();
+  const { fetcher: refetchCart } = useCartItems();
+  const updateQuantity = useMutation(
+    reactExports.useCallback(
+      async ({ cartItemId, newQuantity }) => {
+        if (newQuantity < 1)
+          await deleteCartItem(cartItemId);
+        else
+          await patchCartItem(cartItemId, newQuantity);
+        await refetchCart();
+      },
+      [refetchCart]
+    )
+  );
+  const removeItem = useMutation(
+    reactExports.useCallback(
+      async ({ cartItemId }) => {
+        await deleteCartItem(cartItemId);
+        await refetchCart();
+      },
+      [refetchCart]
+    )
+  );
+  const changeQuantity = reactExports.useCallback(
+    async ({ cartItemId, newQuantity }) => {
+      try {
+        await updateQuantity.mutate({ cartItemId, newQuantity });
+        addToast({ message: "수량 변경이 완료되었습니다.", type: "success" });
+      } catch (err) {
+        addToast({
+          message: err instanceof Error ? err.message : "수량 변경 중 알 수 없는 오류가 발생했습니다.",
+          type: "error"
+        });
+      }
+    },
+    [updateQuantity, addToast]
+  );
+  const deleteCart = reactExports.useCallback(
+    async ({ cartItemId }) => {
+      try {
+        await removeItem.mutate({ cartItemId });
+        addToast({ message: "상품 삭제가 완료되었습니다.", type: "success" });
+      } catch (err) {
+        addToast({
+          message: err instanceof Error ? err.message : "상품 삭제 중 알 수 없는 오류가 발생했습니다.",
+          type: "error"
+        });
+      }
+    },
+    [removeItem, addToast]
+  );
+  return {
+    changeQuantity,
+    deleteCart,
+    isChanging: updateQuantity.isLoading,
+    isDeleting: removeItem.isLoading
+  };
+}
+function CartItem({ item, handleCheckBoxChange, checked, handleDeleteCheck }) {
   const { id: cartItemId, product, quantity: cartQuantity } = item;
   const { name, price, imageUrl } = product;
-  const { fetcher: refetchCart } = useApiContext({ fetchFn: getCartItems, key: "getCartItems" });
-  const handleMinus = async () => {
-    await patchCartItem(cartItemId, cartQuantity - 1);
-    await refetchCart();
-  };
-  const handlePlus = async () => {
-    await patchCartItem(cartItemId, cartQuantity + 1);
-    await refetchCart();
-  };
-  const handleDeleteCart = async () => {
-    await deleteCartItem(cartItemId);
-    await refetchCart();
-  };
+  const { changeQuantity, deleteCart, isChanging, isDeleting } = useCartActions();
+  const handlePlus = reactExports.useCallback(() => {
+    changeQuantity({ cartItemId, newQuantity: cartQuantity + 1 });
+  }, [cartItemId, cartQuantity, changeQuantity]);
+  const handleMinus = reactExports.useCallback(() => {
+    changeQuantity({ cartItemId, newQuantity: cartQuantity - 1 });
+  }, [cartItemId, cartQuantity, changeQuantity]);
+  const handleDeleteCart = reactExports.useCallback(async () => {
+    await deleteCart({ cartItemId });
+    handleDeleteCheck();
+  }, [cartItemId, deleteCart, handleDeleteCheck]);
+  const isLoading = isChanging || isDeleting;
   return /* @__PURE__ */ jsxs("div", { css: cartItemFrameCss, children: [
     /* @__PURE__ */ jsxs("div", { css: cartItemHeaderCss, children: [
       /* @__PURE__ */ jsx$1(CheckBox, { onChange: handleCheckBoxChange, checked }),
-      /* @__PURE__ */ jsx$1(RemoveButton, { onClick: handleDeleteCart })
+      /* @__PURE__ */ jsx$1(RemoveButton, { onClick: handleDeleteCart, disabled: isLoading })
     ] }),
     /* @__PURE__ */ jsxs("div", { css: cartItemInfoCss, children: [
       /* @__PURE__ */ jsx$1(
@@ -11324,7 +11504,7 @@ function CartItem({ item, handleCheckBoxChange, checked }) {
           (price * cartQuantity).toLocaleString(),
           "원"
         ] }),
-        /* @__PURE__ */ jsx$1(Stepper, { value: cartQuantity, onDecrement: handleMinus, onIncrement: handlePlus })
+        /* @__PURE__ */ jsx$1(Stepper, { value: cartQuantity, onDecrement: handleMinus, onIncrement: handlePlus, disabled: isLoading })
       ] })
     ] })
   ] }, cartItemId);
@@ -11362,6 +11542,9 @@ function reducer(state, action) {
       for (const key of state.keys())
         newState.set(key, false);
       return newState;
+    case "DELETE_CHECKED_ITEMS":
+      newState.delete(action.id);
+      return newState;
     default:
       return state;
   }
@@ -11372,15 +11555,22 @@ function useCheckList(items, getKey) {
   const toggle = (id2) => dispatch({ type: "TOGGLE", id: id2 });
   const checkAll = () => dispatch({ type: "CHECK_ALL" });
   const uncheckAll = () => dispatch({ type: "UNCHECK_ALL" });
+  const deleteCheckedItems = (id2) => dispatch({ type: "DELETE_CHECKED_ITEMS", id: id2 });
   const isAllChecked = Array.from(state.values()).every(Boolean);
   return {
     state,
     toggle,
     checkAll,
     uncheckAll,
-    isAllChecked
+    isAllChecked,
+    deleteCheckedItems
   };
 }
+const DELIVERY = {
+  THRESHOLD: 1e5,
+  FEE: 3e3,
+  FREE: 0
+};
 const infoDeliveryFeeCss = css({
   display: "flex",
   alignItems: "center",
@@ -11418,7 +11608,11 @@ function PriceArea({ orderAmount, deliveryFee, totalAmount }) {
   return /* @__PURE__ */ jsxs("section", { css: priceAreaCss, children: [
     /* @__PURE__ */ jsxs("div", { css: infoDeliveryFeeCss, children: [
       /* @__PURE__ */ jsx$1("img", { src: "./assets/info.svg", alt: "info icon" }),
-      /* @__PURE__ */ jsx$1("p", { css: descriptionCss$1, children: "총 주문 금액이 100,000원 이상일 경우 무료 배송됩니다." })
+      /* @__PURE__ */ jsxs("p", { css: descriptionCss$1, children: [
+        "총 주문 금액이 ",
+        DELIVERY.THRESHOLD.toLocaleString(),
+        "원 이상일 경우 무료 배송됩니다."
+      ] })
     ] }),
     /* @__PURE__ */ jsx$1("hr", { css: hrSss }),
     /* @__PURE__ */ jsxs("div", { css: priceRowCss, children: [
@@ -11449,22 +11643,31 @@ const calculateOrderAmount = (items) => {
   return items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 };
 const calculateDeliveryFee = (orderAmount) => {
-  return orderAmount > 1e5 ? 0 : 3e3;
+  return orderAmount > DELIVERY.THRESHOLD ? DELIVERY.FREE : DELIVERY.FEE;
 };
 const calculateTotalQuantity = (items) => {
   return items.reduce((acc, item) => acc + item.quantity, 0);
 };
+function useCartSummary(checkedItems) {
+  return reactExports.useMemo(() => {
+    const orderAmount = calculateOrderAmount(checkedItems);
+    const deliveryFee = calculateDeliveryFee(orderAmount);
+    const totalQuantity = calculateTotalQuantity(checkedItems);
+    const totalAmount = orderAmount + deliveryFee;
+    const countOfItemType = checkedItems.length;
+    return { orderAmount, deliveryFee, totalQuantity, totalAmount, countOfItemType };
+  }, [checkedItems]);
+}
 function CartItemList({ cartItems }) {
-  const { state, isAllChecked, toggle, checkAll, uncheckAll } = useCheckList(cartItems, (item) => item.id);
   const navigate = useNavigate();
-  const checkedItems = getCheckedItems(cartItems, state);
-  const orderAmount = calculateOrderAmount(checkedItems);
-  const deliveryFee = calculateDeliveryFee(orderAmount);
-  const totalAmount = orderAmount + deliveryFee;
-  const countOfItemType = checkedItems.length;
-  const countOfItem = calculateTotalQuantity(checkedItems);
+  const { state, isAllChecked, toggle, checkAll, uncheckAll, deleteCheckedItems } = useCheckList(
+    cartItems,
+    (item) => item.id
+  );
+  const checkedItems = cartItems.filter((item) => state.get(item.id));
+  const { orderAmount, deliveryFee, totalQuantity, totalAmount, countOfItemType } = useCartSummary(checkedItems);
   return /* @__PURE__ */ jsxs("div", { css: cartItemsAreaCss, children: [
-    cartItems.length === 0 ? /* @__PURE__ */ jsx$1("p", { children: "장바구니에 담은 상품이 없습니다." }) : /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs("div", { css: allSelectCss, children: [
         /* @__PURE__ */ jsx$1(CheckBox, { checked: isAllChecked, onChange: isAllChecked ? uncheckAll : checkAll }),
         /* @__PURE__ */ jsx$1("p", { children: "전체 선택" })
@@ -11474,7 +11677,8 @@ function CartItemList({ cartItems }) {
         {
           item,
           checked: state.get(item.id) ?? false,
-          handleCheckBoxChange: () => toggle(item.id)
+          handleCheckBoxChange: () => toggle(item.id),
+          handleDeleteCheck: () => deleteCheckedItems(item.id)
         },
         item.id
       )) }),
@@ -11487,7 +11691,7 @@ function CartItemList({ cartItems }) {
         onClick: () => {
           navigate("/order", {
             state: {
-              countOfItem,
+              totalQuantity,
               countOfItemType,
               totalAmount
             }
@@ -11498,11 +11702,8 @@ function CartItemList({ cartItems }) {
     )
   ] });
 }
-const getCheckedItems = (cartItems, state) => {
-  return cartItems.filter((item) => state.get(item.id));
-};
 function CartPage() {
-  const { data: cartItems } = useApiContext({ fetchFn: getCartItems, key: "getCartItems" });
+  const { data: cartItems } = useCartItems();
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx$1(
       Header,
@@ -11512,12 +11713,14 @@ function CartPage() {
     ),
     /* @__PURE__ */ jsxs("main", { css: layoutCss$1, children: [
       /* @__PURE__ */ jsx$1("h1", { css: titleCss$1, children: "장바구니" }),
-      (cartItems == null ? void 0 : cartItems.content.length) !== 0 && /* @__PURE__ */ jsxs("p", { css: countCss, children: [
-        "총 ",
-        cartItems == null ? void 0 : cartItems.content.length,
-        "개의 상품이 담겨 있습니다."
-      ] }),
-      (cartItems == null ? void 0 : cartItems.content) && /* @__PURE__ */ jsx$1(CartItemList, { cartItems: cartItems.content })
+      (cartItems == null ? void 0 : cartItems.content) && cartItems.content.length > 0 ? /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs("p", { css: countCss, children: [
+          "총 ",
+          cartItems == null ? void 0 : cartItems.content.length,
+          "개의 상품이 담겨 있습니다."
+        ] }),
+        /* @__PURE__ */ jsx$1(CartItemList, { cartItems: cartItems == null ? void 0 : cartItems.content })
+      ] }) : /* @__PURE__ */ jsx$1("p", { children: "장바구니에 담은 상품이 없습니다." })
     ] })
   ] });
 }
@@ -11542,14 +11745,16 @@ const countCss = css({
 function OrderPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { countOfItem, countOfItemType, totalAmount } = location.state ?? {};
+  const { totalQuantity, countOfItemType, totalAmount } = location.state ?? {};
   reactExports.useEffect(() => {
-    if (!countOfItem && !countOfItemType && !totalAmount) {
-      alert("비정상적인 접근입니다. 장바구니로 이동합니다.");
-      navigate("/");
+    if (!totalQuantity || !countOfItemType || !totalAmount) {
+      const isConfirmed = confirm("비정상적인 접근입니다. 장바구니로 이동하시겠습니까?");
+      if (isConfirmed) {
+        navigate("/");
+      }
       return;
     }
-  }, [countOfItem, countOfItemType, totalAmount, navigate]);
+  }, [navigate]);
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx$1(
       Header,
@@ -11563,7 +11768,7 @@ function OrderPage() {
         "총 ",
         countOfItemType,
         "종류의 상품 ",
-        countOfItem,
+        totalQuantity,
         "개를 주문합니다.",
         /* @__PURE__ */ jsx$1("br", {}),
         "최종 결제 금액을 확인해 주세요."
@@ -11604,73 +11809,9 @@ const priceCss = css({
   fontSize: "20px",
   fontWeight: "bold"
 });
-const toastCss = css({
-  background: "#FFC9C9",
-  width: "382px",
-  padding: "12px 20px",
-  margin: "0 auto",
-  marginTop: "32px",
-  borderRadius: "8px",
-  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-  position: "fixed",
-  top: "20px",
-  left: "50%",
-  transform: "translateX(-50%)",
-  zIndex: 1e3,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  opacity: 1,
-  transition: "opacity 0.3s ease-in-out"
-});
-const messageCss = css({
-  margin: 0,
-  fontSize: "16px",
-  fontWeight: "500",
-  color: "#D63031"
-});
-const closeButtonCss = css({
-  background: "none",
-  border: "none",
-  color: "#D63031",
-  cursor: "pointer",
-  fontSize: "18px",
-  padding: "0 0 0 10px"
-});
-function ErrorToast({ error, duration = 2e3 }) {
-  const [visible, setVisible] = reactExports.useState(true);
-  reactExports.useEffect(() => {
-    const timer = setTimeout(() => {
-      setVisible(false);
-    }, duration);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [duration]);
-  const handleClose = () => {
-    setVisible(false);
-  };
-  if (!visible)
-    return null;
-  return /* @__PURE__ */ jsxs("div", { css: toastCss, children: [
-    /* @__PURE__ */ jsx$1("h2", { css: messageCss, children: error.message }),
-    /* @__PURE__ */ jsx$1("button", { css: closeButtonCss, onClick: handleClose, children: "✕" })
-  ] });
-}
-const ErrorContext = reactExports.createContext(void 0);
-const ErrorContextProvider = ({ children }) => {
-  const [error, setError] = reactExports.useState(null);
-  const showError = reactExports.useCallback((error2) => {
-    setError(error2);
-  }, []);
-  return /* @__PURE__ */ jsxs(ErrorContext.Provider, { value: { showError }, children: [
-    children,
-    error && /* @__PURE__ */ jsx$1(ErrorToast, { error })
-  ] });
-};
 const basename = "/react-shopping-cart";
 function App() {
-  return /* @__PURE__ */ jsx$1(ErrorContextProvider, { children: /* @__PURE__ */ jsx$1(ApiProvider, { children: /* @__PURE__ */ jsx$1("div", { css: RoutesStyle, children: /* @__PURE__ */ jsx$1(BrowserRouter, { basename, children: /* @__PURE__ */ jsxs(Routes, { children: [
+  return /* @__PURE__ */ jsx$1(ApiProvider, { children: /* @__PURE__ */ jsx$1(ToastProvider, { children: /* @__PURE__ */ jsx$1("div", { css: RoutesStyle, children: /* @__PURE__ */ jsx$1(BrowserRouter, { basename, children: /* @__PURE__ */ jsxs(Routes, { children: [
     /* @__PURE__ */ jsx$1(Route, { path: "/", element: /* @__PURE__ */ jsx$1(CartPage, {}) }),
     /* @__PURE__ */ jsx$1(Route, { path: "/order", element: /* @__PURE__ */ jsx$1(OrderPage, {}) })
   ] }) }) }) }) });
