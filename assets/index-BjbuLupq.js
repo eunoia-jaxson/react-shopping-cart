@@ -11104,32 +11104,35 @@ const headerCss = css({
   justifyContent: "space-between",
   alignItems: "center"
 });
-const cartItemsAreaCss = css({
+const cartItemsAreaCss$1 = css({
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  width: "100%"
+  width: "100%",
+  height: "100%"
 });
-const allSelectCss = css({
+const allSelectCss$1 = css({
   display: "flex",
   flexDirection: "row",
   alignItems: "center",
   gap: "8px",
   width: "100%",
+  fontSize: "12px",
   marginBottom: "16px"
 });
-const cartItemsListCss = css({
-  width: "100%"
+const cartItemsListCss$1 = css({
+  width: "100%",
+  overflow: "auto"
 });
 function CheckBox(props) {
-  return /* @__PURE__ */ jsx$1("input", { ...props, css: checkboxCss, type: "checkbox" });
+  return /* @__PURE__ */ jsx$1("input", { ...props, css: checkboxCss(props.disabled ?? false), type: "checkbox" });
 }
-const checkboxCss = css({
+const checkboxCss = (disabled) => css({
   width: "24px",
   height: "24px",
   borderRadius: "8px",
   accentColor: "black",
-  cursor: "pointer"
+  cursor: disabled ? "not-allowed" : "pointer"
 });
 const cartItemFrameCss = css({
   display: "flex",
@@ -11165,11 +11168,19 @@ const cartItemPriceCss = css({
   fontSize: "24px",
   fontWeight: "bold"
 });
+const cartItemQuantityCss = css({
+  fontSize: "12px"
+});
+const cartItemInfoTextCss = css({
+  display: "flex",
+  flexDirection: "column",
+  gap: "24px"
+});
 function Stepper({ value, onIncrement, onDecrement, disabled }) {
   return /* @__PURE__ */ jsxs("div", { css: stepperWrapper, "data-testid": "stepper", children: [
-    /* @__PURE__ */ jsx$1("button", { css: buttonCss$1, onClick: onDecrement, disabled, children: "-" }),
+    /* @__PURE__ */ jsx$1("button", { css: buttonCss$2, onClick: onDecrement, disabled, children: "-" }),
     /* @__PURE__ */ jsx$1("span", { css: valueCss, children: value }),
-    /* @__PURE__ */ jsx$1("button", { css: buttonCss$1, onClick: onIncrement, disabled, children: "+" })
+    /* @__PURE__ */ jsx$1("button", { css: buttonCss$2, onClick: onIncrement, disabled, children: "+" })
   ] });
 }
 const stepperWrapper = css({
@@ -11181,7 +11192,7 @@ const valueCss = css({
   fontSize: "12px",
   fontWeight: 500
 });
-const buttonCss$1 = css({
+const buttonCss$2 = css({
   backgroundColor: "white",
   border: "1px solid #eaeaea",
   borderRadius: "4px",
@@ -11197,9 +11208,9 @@ const buttonCss$1 = css({
   }
 });
 function RemoveButton(props) {
-  return /* @__PURE__ */ jsx$1("button", { css: buttonCss, ...props, children: "삭제" });
+  return /* @__PURE__ */ jsx$1("button", { css: buttonCss$1, ...props, children: "삭제" });
 }
-const buttonCss = css({
+const buttonCss$1 = css({
   backgroundColor: "white",
   border: "1px solid #eaeaea",
   borderRadius: "4px",
@@ -11285,7 +11296,8 @@ function useToast() {
 const BASE_URL = "http://techcourse-lv2-alb-974870821.ap-northeast-2.elb.amazonaws.com";
 const URLS = {
   CART_ITEMS: `${BASE_URL}/cart-items`,
-  PRODUCTS: `${BASE_URL}/products`
+  PRODUCTS: `${BASE_URL}/products`,
+  COUPONS: `${BASE_URL}/coupons`
 };
 const headers = {
   Authorization: `Basic ${btoa(`${"eunoia-jaxson"}:${"password"}`)}`,
@@ -11405,7 +11417,7 @@ const getCartItems = async () => {
   return res.json();
 };
 const useCartItems = () => {
-  return useApiContext({ fetchFn: getCartItems, key: "getCartItems" });
+  return useApiContext({ fetchFn: getCartItems, key: "cartItems" });
 };
 function useCartActions() {
   const { addToast } = useToast();
@@ -11509,8 +11521,8 @@ function CartItem({ item, handleCheckBoxChange, checked, handleDeleteCheck }) {
     ] })
   ] }, cartItemId);
 }
-function Button({ children, onClick, ...props }) {
-  return /* @__PURE__ */ jsx$1("button", { css: ButtonStyles, ...props, onClick, children });
+function Button({ children, ...props }) {
+  return /* @__PURE__ */ jsx$1("button", { css: ButtonStyles, ...props, children });
 }
 const ButtonStyles = css({
   backgroundColor: "black",
@@ -11519,9 +11531,8 @@ const ButtonStyles = css({
   minHeight: "64px",
   fontSize: "16px",
   fontWeight: "bold",
-  padding: "24px 0",
   textAlign: "center",
-  position: "sticky",
+  position: "fixed",
   bottom: 0,
   "&:disabled": {
     backgroundColor: "#BEBEBE",
@@ -11549,14 +11560,26 @@ function reducer(state, action) {
       return state;
   }
 }
+const STORAGE_KEY = "check-list";
 function useCheckList(items, getKey) {
-  const initialState = new Map(items.map((item) => [getKey(item), true]));
-  const [state, dispatch] = reactExports.useReducer(reducer, initialState);
+  const loadInitialState = reactExports.useCallback(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const entries = JSON.parse(stored);
+      return new Map(entries);
+    }
+    return new Map(items.map((item) => [getKey(item), true]));
+  }, [items, getKey]);
+  const [state, dispatch] = reactExports.useReducer(reducer, loadInitialState());
   const toggle = (id2) => dispatch({ type: "TOGGLE", id: id2 });
   const checkAll = () => dispatch({ type: "CHECK_ALL" });
   const uncheckAll = () => dispatch({ type: "UNCHECK_ALL" });
   const deleteCheckedItems = (id2) => dispatch({ type: "DELETE_CHECKED_ITEMS", id: id2 });
   const isAllChecked = Array.from(state.values()).every(Boolean);
+  reactExports.useEffect(() => {
+    const serialized = JSON.stringify(Array.from(state.entries()));
+    localStorage.setItem(STORAGE_KEY, serialized);
+  }, [state]);
   return {
     state,
     toggle,
@@ -11587,10 +11610,11 @@ const hrSss = css({
 const priceRowCss = css({
   display: "flex",
   justifyContent: "space-between",
+  alignItems: "center",
   width: "100%",
   margin: "8px 0"
 });
-const priceTitleCss$1 = css({
+const priceTitleCss$2 = css({
   fontWeight: 700,
   fontSize: "16px"
 });
@@ -11598,17 +11622,19 @@ const priceCss$1 = css({
   fontWeight: 700,
   fontSize: "24px"
 });
-const descriptionCss$1 = css({
+const descriptionCss$2 = css({
   fontSize: "12px"
 });
 const priceAreaCss = css({
-  width: "100%"
+  width: "100%",
+  height: "100%",
+  padding: "16px 0"
 });
-function PriceArea({ orderAmount, deliveryFee, totalAmount }) {
+function PriceArea({ orderAmount, deliveryFee, totalAmount, couponDiscount }) {
   return /* @__PURE__ */ jsxs("section", { css: priceAreaCss, children: [
     /* @__PURE__ */ jsxs("div", { css: infoDeliveryFeeCss, children: [
       /* @__PURE__ */ jsx$1("img", { src: "./assets/info.svg", alt: "info icon" }),
-      /* @__PURE__ */ jsxs("p", { css: descriptionCss$1, children: [
+      /* @__PURE__ */ jsxs("p", { css: descriptionCss$2, children: [
         "총 주문 금액이 ",
         DELIVERY.THRESHOLD.toLocaleString(),
         "원 이상일 경우 무료 배송됩니다."
@@ -11616,14 +11642,22 @@ function PriceArea({ orderAmount, deliveryFee, totalAmount }) {
     ] }),
     /* @__PURE__ */ jsx$1("hr", { css: hrSss }),
     /* @__PURE__ */ jsxs("div", { css: priceRowCss, children: [
-      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$1, children: "주문 금액" }),
+      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$2, children: "주문 금액" }),
       /* @__PURE__ */ jsxs("p", { css: priceCss$1, "data-testid": "order-amount", children: [
         orderAmount.toLocaleString(),
         "원"
       ] })
     ] }),
+    couponDiscount !== void 0 && /* @__PURE__ */ jsxs("div", { css: priceRowCss, children: [
+      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$2, children: "쿠폰 할인 금액" }),
+      /* @__PURE__ */ jsxs("p", { css: priceCss$1, "data-testid": "coupon-discount", children: [
+        "-",
+        couponDiscount.toLocaleString(),
+        "원"
+      ] })
+    ] }),
     /* @__PURE__ */ jsxs("div", { css: priceRowCss, children: [
-      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$1, children: "배송비" }),
+      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$2, children: "배송비" }),
       /* @__PURE__ */ jsxs("p", { css: priceCss$1, children: [
         deliveryFee.toLocaleString(),
         "원"
@@ -11631,7 +11665,7 @@ function PriceArea({ orderAmount, deliveryFee, totalAmount }) {
     ] }),
     /* @__PURE__ */ jsx$1("hr", { css: hrSss }),
     /* @__PURE__ */ jsxs("div", { css: priceRowCss, children: [
-      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$1, children: "총 결제 금액" }),
+      /* @__PURE__ */ jsx$1("p", { css: priceTitleCss$2, children: "총 결제 금액" }),
       /* @__PURE__ */ jsxs("p", { css: priceCss$1, "data-testid": "total-amount", children: [
         totalAmount.toLocaleString(),
         "원"
@@ -11666,42 +11700,61 @@ function CartItemList({ cartItems }) {
   );
   const checkedItems = cartItems.filter((item) => state.get(item.id));
   const { orderAmount, deliveryFee, totalQuantity, totalAmount, countOfItemType } = useCartSummary(checkedItems);
-  return /* @__PURE__ */ jsxs("div", { css: cartItemsAreaCss, children: [
-    /* @__PURE__ */ jsxs(Fragment, { children: [
-      /* @__PURE__ */ jsxs("div", { css: allSelectCss, children: [
-        /* @__PURE__ */ jsx$1(CheckBox, { checked: isAllChecked, onChange: isAllChecked ? uncheckAll : checkAll }),
-        /* @__PURE__ */ jsx$1("p", { children: "전체 선택" })
-      ] }),
-      /* @__PURE__ */ jsx$1("div", { css: cartItemsListCss, "data-testid": "cart-item-list", children: cartItems.map((item) => /* @__PURE__ */ jsx$1(
-        CartItem,
-        {
-          item,
-          checked: state.get(item.id) ?? false,
-          handleCheckBoxChange: () => toggle(item.id),
-          handleDeleteCheck: () => deleteCheckedItems(item.id)
-        },
-        item.id
-      )) }),
-      /* @__PURE__ */ jsx$1(PriceArea, { orderAmount, deliveryFee, totalAmount })
-    ] }),
-    /* @__PURE__ */ jsx$1(
-      Button,
-      {
-        disabled: !Array.from(state.values()).some(Boolean),
-        onClick: () => {
-          navigate("/order", {
-            state: {
-              totalQuantity,
-              countOfItemType,
-              totalAmount
-            }
-          });
-        },
-        children: "주문 확인"
+  const navigateToOrder = () => {
+    navigate("/order", {
+      state: {
+        totalQuantity,
+        countOfItemType,
+        totalAmount,
+        checkedItems,
+        deliveryFee,
+        orderAmount
       }
-    )
+    });
+  };
+  return /* @__PURE__ */ jsxs("div", { css: cartItemsAreaCss$1, children: [
+    /* @__PURE__ */ jsxs("div", { css: allSelectCss$1, children: [
+      /* @__PURE__ */ jsx$1(CheckBox, { checked: isAllChecked, onChange: isAllChecked ? uncheckAll : checkAll }),
+      /* @__PURE__ */ jsx$1("p", { children: "전체 선택" })
+    ] }),
+    /* @__PURE__ */ jsx$1("div", { css: cartItemsListCss$1, "data-testid": "cart-item-list", children: cartItems.map((item) => /* @__PURE__ */ jsx$1(
+      CartItem,
+      {
+        item,
+        checked: state.get(item.id) ?? false,
+        handleCheckBoxChange: () => toggle(item.id),
+        handleDeleteCheck: () => deleteCheckedItems(item.id)
+      },
+      item.id
+    )) }),
+    /* @__PURE__ */ jsx$1(PriceArea, { orderAmount, deliveryFee, totalAmount }),
+    /* @__PURE__ */ jsx$1(Button, { disabled: !Array.from(state.values()).some(Boolean), onClick: navigateToOrder, children: "주문 확인" })
   ] });
 }
+const layoutCss$1 = css({
+  display: "flex",
+  flexDirection: "column",
+  padding: "36px 24px",
+  height: "calc(100dvh - 128px)"
+});
+const titleCss$1 = css({
+  fontSize: "24px",
+  fontWeight: "700"
+});
+const fontSize12$2 = css({
+  fontSize: "12px"
+});
+const descriptionCss$1 = css(fontSize12$2, {
+  marginBottom: "16px"
+});
+const allSelectCss = css(fontSize12$2, {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: "8px",
+  width: "100%",
+  marginBottom: "16px"
+});
 function CartPage() {
   const { data: cartItems } = useCartItems();
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -11714,7 +11767,7 @@ function CartPage() {
     /* @__PURE__ */ jsxs("main", { css: layoutCss$1, children: [
       /* @__PURE__ */ jsx$1("h1", { css: titleCss$1, children: "장바구니" }),
       (cartItems == null ? void 0 : cartItems.content) && cartItems.content.length > 0 ? /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsxs("p", { css: countCss, children: [
+        /* @__PURE__ */ jsxs("p", { css: descriptionCss$1, children: [
           "총 ",
           cartItems == null ? void 0 : cartItems.content.length,
           "개의 상품이 담겨 있습니다."
@@ -11729,30 +11782,414 @@ const logoCss = css({
   fontWeight: 800,
   fontSize: "20px"
 });
-const layoutCss$1 = css({
+function OrderItem({ item }) {
+  const { id: cartItemId, product, quantity: cartQuantity } = item;
+  const { name, price, imageUrl } = product;
+  return /* @__PURE__ */ jsx$1("div", { css: cartItemFrameCss, children: /* @__PURE__ */ jsxs("div", { css: cartItemInfoCss, children: [
+    /* @__PURE__ */ jsx$1(
+      "img",
+      {
+        css: cartItemImgCss,
+        src: imageUrl || "./assets/default.png",
+        alt: name,
+        onError: (e2) => {
+          e2.currentTarget.src = "./assets/default.png";
+        }
+      }
+    ),
+    /* @__PURE__ */ jsxs("div", { css: cartItemInfoTextCss, children: [
+      /* @__PURE__ */ jsxs("div", { children: [
+        /* @__PURE__ */ jsx$1("p", { css: cartItemQuantityCss, children: name }),
+        /* @__PURE__ */ jsxs("p", { css: cartItemPriceCss, children: [
+          (price * cartQuantity).toLocaleString(),
+          "원"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs("p", { css: cartItemQuantityCss, children: [
+        cartQuantity,
+        "개"
+      ] })
+    ] })
+  ] }) }, cartItemId);
+}
+function formatToKoreanDate(dateStr) {
+  const match2 = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match2) {
+    throw new Error(`Invalid date format: "${dateStr}". Expected "YYYY-MM-DD".`);
+  }
+  const [, year, month, day] = match2;
+  return `${year}년 ${month}월 ${day}일`;
+}
+function formatTime(start, end) {
+  const parseTime = (time) => {
+    const m2 = time.match(/^(\d{2}):(\d{2}):(\d{2})$/);
+    if (!m2) {
+      throw new Error(`Invalid time format: "${time}". Expected "HH:mm:ss".`);
+    }
+    const hour24 = parseInt(m2[1], 10);
+    const minute = parseInt(m2[2], 10);
+    const period = hour24 < 12 ? "오전" : "오후";
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    return { period, hour12, minute };
+  };
+  const s = parseTime(start);
+  const e2 = parseTime(end);
+  const startText = `${s.period} ${s.hour12}시` + (s.minute > 0 ? ` ${s.minute}분` : "");
+  const endPrefix = s.period === e2.period ? "" : `${e2.period} `;
+  const endText = `${endPrefix}${e2.hour12}시` + (e2.minute > 0 ? ` ${e2.minute}분` : "");
+  return `${startText}부터 ${endText}까지`;
+}
+function isFixedCoupon(c2) {
+  return c2.discountType === "fixed";
+}
+function isFreeShippingCoupon(c2) {
+  return c2.discountType === "freeShipping";
+}
+function isPercentageCoupon(c2) {
+  return c2.discountType === "percentage";
+}
+function isBuyXGetYCoupon(c2) {
+  return c2.discountType === "buyXgetY";
+}
+function isExpired(coupon, now = /* @__PURE__ */ new Date()) {
+  const today = now.toISOString().slice(0, 10);
+  return today > coupon.expirationDate;
+}
+function isBelowMinimum(coupon, orderAmount) {
+  return orderAmount < coupon.minimumAmount;
+}
+function isOutsideAvailableTime(coupon, now = /* @__PURE__ */ new Date()) {
+  const [sh2, sm, ss] = coupon.availableTime.start.split(":").map(Number);
+  const [eh2, em, es] = coupon.availableTime.end.split(":").map(Number);
+  const toSec = (h2, m2, s) => h2 * 3600 + m2 * 60 + s;
+  const nowSec = toSec(now.getHours(), now.getMinutes(), now.getSeconds());
+  return nowSec < toSec(sh2, sm, ss) || nowSec > toSec(eh2, em, es);
+}
+function isInsufficientQuantity(coupon, items) {
+  const threshold = coupon.buyQuantity + coupon.getQuantity;
+  return !items.some((item) => item.quantity >= threshold);
+}
+function isCouponDisabled(coupon, orderAmount, items, now = /* @__PURE__ */ new Date()) {
+  if (isExpired(coupon, now)) {
+    return true;
+  }
+  if ((isFixedCoupon(coupon) || isFreeShippingCoupon(coupon)) && isBelowMinimum(coupon, orderAmount)) {
+    return true;
+  }
+  if (isPercentageCoupon(coupon) && isOutsideAvailableTime(coupon, now)) {
+    return true;
+  }
+  if (isBuyXGetYCoupon(coupon) && isInsufficientQuantity(coupon, items)) {
+    return true;
+  }
+  return false;
+}
+const CouponItem = ({ coupon, orderAmount, items, selectedCoupons, handleCouponToggle }) => {
+  const isDisabled = isCouponDisabled(coupon, orderAmount, items) || selectedCoupons.length >= 2 && !selectedCoupons.includes(coupon);
+  return /* @__PURE__ */ jsxs("div", { css: couponItemCss(isDisabled), children: [
+    /* @__PURE__ */ jsxs("div", { css: TitleCss, children: [
+      /* @__PURE__ */ jsx$1(CheckBox, { disabled: isDisabled, checked: selectedCoupons.includes(coupon), onChange: handleCouponToggle }),
+      /* @__PURE__ */ jsx$1("p", { css: TitleTextCss, children: coupon.description })
+    ] }),
+    /* @__PURE__ */ jsxs("p", { css: fontSize12$1, children: [
+      "만료일: ",
+      formatToKoreanDate(coupon.expirationDate)
+    ] }),
+    (coupon.discountType === "fixed" || coupon.discountType === "freeShipping") && /* @__PURE__ */ jsxs("p", { css: fontSize12$1, children: [
+      "최소 주문 금액: ",
+      coupon.minimumAmount.toLocaleString(),
+      "원"
+    ] }),
+    coupon.discountType === "percentage" && /* @__PURE__ */ jsxs("p", { css: fontSize12$1, children: [
+      "사용 가능 시간: ",
+      formatTime(coupon.availableTime.start, coupon.availableTime.end)
+    ] })
+  ] });
+};
+const couponItemCss = (isDisabled) => css({
   display: "flex",
   flexDirection: "column",
-  padding: "36px 24px",
-  height: "100%"
+  width: "100%",
+  borderTop: "1px solid #e0e0e0",
+  padding: "12px 0 24px",
+  opacity: isDisabled ? 0.5 : 1
 });
-const titleCss$1 = css({
-  fontSize: "24px",
-  fontWeight: "700"
+const TitleCss = css({
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: "8px",
+  marginBottom: "12px"
 });
-const countCss = css({
+const TitleTextCss = css({
+  fontSize: "16px",
+  fontWeight: "bold"
+});
+const fontSize12$1 = css({
+  fontSize: "12px"
+});
+const ModalBackdrop = ({ children, handleClose }) => {
+  const handleBackdropClick = (e2) => {
+    if (e2.target === e2.currentTarget) {
+      handleClose();
+    }
+  };
+  return /* @__PURE__ */ jsx$1("div", { css: backdropStyles, onClick: handleBackdropClick, "data-testid": "modal-backdrop", children });
+};
+const backdropStyles = css({
+  width: "100dvw",
+  height: "100dvh",
+  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  position: "fixed",
+  zIndex: 0,
+  left: 0,
+  top: 0
+});
+const ModalHeader = ({ title, showCloseButton = false, handleClose }) => /* @__PURE__ */ jsxs("section", { css: headerStyles, children: [
+  title && /* @__PURE__ */ jsx$1("h3", { id: "modal-title", children: title }),
+  showCloseButton && /* @__PURE__ */ jsx$1("button", { css: closeButtonStyles, onClick: handleClose, children: "X" })
+] });
+const headerStyles = css({
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  width: "100%",
+  paddingBottom: "24px"
+});
+const closeButtonStyles = css({
+  all: "unset",
+  width: "32px",
+  height: "32px",
+  cursor: "pointer",
+  borderRadius: "50%",
+  fontSize: "16px",
+  textAlign: "center",
+  lineHeight: "36px",
+  "&:hover": {
+    backgroundColor: "rgba(0, 0, 0, 0.1)"
+  }
+});
+const useEscapeHandler = (handleClose) => {
+  reactExports.useEffect(() => {
+    const handleKeyDown = (e2) => {
+      if (e2.key === "Escape") {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleClose]);
+};
+const ShoppingCartModal = ({ children, isOpen, handleClose }) => {
+  useEscapeHandler(handleClose);
+  if (!isOpen)
+    return null;
+  return /* @__PURE__ */ jsx$1(ModalBackdrop, { handleClose, children: /* @__PURE__ */ jsxs(
+    "div",
+    {
+      css: ModalFrame,
+      "data-testid": "modal",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-labelledby": "modal-title",
+      "aria-describedby": "modal-body",
+      children: [
+        /* @__PURE__ */ jsx$1(ModalHeader, { title: "쿠폰을 선택해 주세요", showCloseButton: true, handleClose }),
+        children
+      ]
+    }
+  ) });
+};
+const ModalFrame = css({
+  backgroundColor: "white",
+  padding: "20px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "344px",
+  maxHeight: "80dvh",
+  borderRadius: "8px"
+});
+function calculateCouponDiscount(coupon, orderAmount, items, deliveryFee) {
+  switch (coupon.discountType) {
+    case "fixed":
+      return coupon.discount;
+    case "freeShipping":
+      return deliveryFee;
+    case "percentage":
+      return Math.floor(orderAmount * (coupon.discount / 100));
+    case "buyXgetY": {
+      if (items.length === 0)
+        return 0;
+      const highest = items.reduce((prev2, item) => item.product.price > prev2.product.price ? item : prev2, items[0]);
+      return highest.product.price * coupon.getQuantity;
+    }
+    default:
+      return 0;
+  }
+}
+const CouponModal = ({
+  isOpen,
+  handleClose,
+  coupons,
+  orderAmount,
+  checkedItems,
+  totalDeliveryFee,
+  temp,
+  toggleCoupon,
+  apply
+}) => {
+  const tempTotalDiscount = reactExports.useMemo(
+    () => temp.reduce((sum, c2) => sum + calculateCouponDiscount(c2, orderAmount, checkedItems, totalDeliveryFee), 0),
+    [temp, orderAmount, checkedItems, totalDeliveryFee]
+  );
+  return /* @__PURE__ */ jsxs(ShoppingCartModal, { isOpen, handleClose, children: [
+    /* @__PURE__ */ jsxs("div", { css: infoCss, children: [
+      /* @__PURE__ */ jsx$1("img", { src: "./assets/info.svg", alt: "info icon" }),
+      /* @__PURE__ */ jsx$1("p", { css: fontSize12, children: "쿠폰은 최대 2개까지 사용할 수 있습니다." })
+    ] }),
+    coupons == null ? void 0 : coupons.map((coupon) => /* @__PURE__ */ jsx$1(
+      CouponItem,
+      {
+        coupon,
+        orderAmount,
+        items: checkedItems,
+        selectedCoupons: temp,
+        handleCouponToggle: () => toggleCoupon(coupon)
+      },
+      coupon.id
+    )),
+    /* @__PURE__ */ jsxs(Button, { css: buttonCss, onClick: apply, children: [
+      "총 ",
+      tempTotalDiscount.toLocaleString(),
+      "원 할인쿠폰 사용하기"
+    ] })
+  ] });
+};
+const buttonCss = css({
+  all: "unset",
+  borderRadius: "5px",
+  backgroundColor: "#333333",
+  textAlign: "center",
+  width: "100%",
+  cursor: "pointer",
+  border: "none",
+  minHeight: "44px",
+  color: "white",
+  fontSize: "15px",
+  fontWeight: "bold"
+});
+const infoCss = css({
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  width: "100%",
   marginBottom: "16px"
 });
+const fontSize12 = css({
+  fontSize: "12px"
+});
+const useToggle = (initial = false) => {
+  const [value, setValue] = reactExports.useState(initial);
+  const on = reactExports.useCallback(() => setValue(true), []);
+  const off = reactExports.useCallback(() => setValue(false), []);
+  const toggle = reactExports.useCallback(() => setValue((v2) => !v2), []);
+  return { value, on, off, toggle };
+};
+function useDeliveryFee(baseFee) {
+  const { value: includeSpecial, toggle } = useToggle(false);
+  const totalFee = includeSpecial ? baseFee + 3e3 : baseFee;
+  return { includeSpecial, toggle, totalFee };
+}
+const getCoupons = async () => {
+  const res = await fetch(URLS.COUPONS);
+  if (!res.ok) {
+    throw new Error("쿠폰 데이터를 불러오는 데 실패했습니다.");
+  }
+  return res.json();
+};
+const useCoupons = () => {
+  return useApiContext({ fetchFn: getCoupons, key: "coupons" });
+};
+function getBestCoupons(coupons, orderAmount, items, deliveryFee, now = /* @__PURE__ */ new Date()) {
+  const enabled = coupons.filter((c2) => !isCouponDisabled(c2, orderAmount, items, now));
+  const withValue = enabled.map((c2) => ({
+    coupon: c2,
+    value: calculateCouponDiscount(c2, orderAmount, items, deliveryFee)
+  }));
+  withValue.sort((a, b2) => b2.value - a.value);
+  return withValue.slice(0, 2).map((x2) => x2.coupon);
+}
+function useCouponSelector(orderAmount, items, baseDeliveryFee) {
+  const { data: coupons = [] } = useCoupons();
+  const [selected, setSelected] = reactExports.useState([]);
+  const [temp, setTemp] = reactExports.useState([]);
+  const { value: isOpen, on: open, off: close } = useToggle(false);
+  const handleOpen = () => {
+    setTemp(selected);
+    open();
+  };
+  const handleClose = () => close();
+  const toggleCoupon = (c2) => {
+    if (isCouponDisabled(c2, orderAmount, items))
+      return;
+    setTemp(
+      (prev2) => prev2.some((x2) => x2.id === c2.id) ? prev2.filter((x2) => x2.id !== c2.id) : prev2.length < 2 ? [...prev2, c2] : prev2
+    );
+  };
+  const apply = () => {
+    setSelected(temp);
+    close();
+  };
+  const totalDiscount = reactExports.useMemo(
+    () => selected.reduce((sum, c2) => sum + calculateCouponDiscount(c2, orderAmount, items, baseDeliveryFee), 0),
+    [selected, orderAmount, items, baseDeliveryFee]
+  );
+  reactExports.useEffect(() => {
+    setSelected(getBestCoupons(coupons, orderAmount, items, baseDeliveryFee));
+  }, [coupons, orderAmount, items]);
+  return {
+    coupons,
+    selected,
+    temp,
+    isOpen,
+    totalDiscount,
+    handleOpen,
+    handleClose,
+    toggleCoupon,
+    apply
+  };
+}
 function OrderPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { totalQuantity, countOfItemType, totalAmount } = location.state ?? {};
+  const { totalQuantity, countOfItemType, totalAmount, checkedItems, deliveryFee, orderAmount } = location.state ?? {};
+  const { includeSpecial, toggle, totalFee } = useDeliveryFee(deliveryFee);
+  const { coupons, temp, isOpen, totalDiscount, handleOpen, handleClose, toggleCoupon, apply } = useCouponSelector(
+    orderAmount,
+    checkedItems,
+    totalFee
+  );
+  const totalAmountAfterDiscount = orderAmount + totalFee - totalDiscount;
+  const navigateToComplete = () => {
+    navigate("/complete", {
+      state: {
+        totalQuantity,
+        countOfItemType,
+        totalAmountAfterDiscount
+      }
+    });
+  };
   reactExports.useEffect(() => {
-    if (!totalQuantity || !countOfItemType || !totalAmount) {
+    if (!totalQuantity || !countOfItemType || !totalAmount || !checkedItems || !orderAmount || deliveryFee === void 0) {
       const isConfirmed = confirm("비정상적인 접근입니다. 장바구니로 이동하시겠습니까?");
       if (isConfirmed) {
         navigate("/");
       }
-      return;
     }
   }, [navigate]);
   return /* @__PURE__ */ jsxs(Fragment, { children: [
@@ -11762,6 +12199,101 @@ function OrderPage() {
         left: /* @__PURE__ */ jsx$1("button", { onClick: () => navigate(-1), children: /* @__PURE__ */ jsx$1("img", { src: "./assets/back.svg" }) })
       }
     ),
+    /* @__PURE__ */ jsxs("main", { css: layoutCss$1, children: [
+      /* @__PURE__ */ jsx$1("h1", { css: titleCss$1, children: "주문 확인" }),
+      /* @__PURE__ */ jsxs("p", { css: descriptionCss$1, children: [
+        "총 ",
+        countOfItemType,
+        "종류의 상품 ",
+        totalQuantity,
+        "개를 주문합니다.",
+        /* @__PURE__ */ jsx$1("br", {}),
+        "최종 결제 금액을 확인해 주세요."
+      ] }),
+      /* @__PURE__ */ jsxs("div", { css: cartItemsAreaCss, children: [
+        /* @__PURE__ */ jsx$1("div", { css: cartItemsListCss, children: checkedItems.map((item) => /* @__PURE__ */ jsx$1(OrderItem, { item }, item.id)) }),
+        /* @__PURE__ */ jsx$1(Button, { css: couponApplyCss, onClick: handleOpen, children: "쿠폰 적용" }),
+        /* @__PURE__ */ jsx$1("div", { css: priceTitleCss$1, children: "배송 정보" }),
+        /* @__PURE__ */ jsxs("div", { css: allSelectCss, children: [
+          /* @__PURE__ */ jsx$1(CheckBox, { checked: includeSpecial, onChange: toggle }),
+          /* @__PURE__ */ jsx$1("p", { children: "제주도 및 도서 산간 지역" })
+        ] }),
+        /* @__PURE__ */ jsx$1(
+          PriceArea,
+          {
+            orderAmount,
+            deliveryFee: totalFee,
+            totalAmount: totalAmountAfterDiscount,
+            couponDiscount: totalDiscount
+          }
+        ),
+        /* @__PURE__ */ jsx$1(Button, { onClick: navigateToComplete, children: "결제하기" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsx$1(
+      CouponModal,
+      {
+        isOpen,
+        handleClose,
+        coupons: coupons ?? [],
+        orderAmount,
+        checkedItems,
+        totalDeliveryFee: totalFee,
+        temp,
+        toggleCoupon,
+        apply
+      }
+    )
+  ] });
+}
+const priceTitleCss$1 = css({
+  fontSize: "16px",
+  fontWeight: "bold",
+  marginBottom: "12px",
+  width: "100%"
+});
+const cartItemsListCss = css({
+  width: "100%",
+  height: "50%",
+  overflow: "auto"
+});
+const cartItemsAreaCss = css({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: "100%",
+  height: "100%"
+});
+const couponApplyCss = css({
+  all: "unset",
+  width: "100%",
+  backgroundColor: "transparent",
+  border: "1px solid #cccccc",
+  color: "#555555",
+  fontSize: "16px",
+  fontWeight: "bold",
+  padding: "10px 0",
+  textAlign: "center",
+  borderRadius: "5px",
+  margin: "16px 0",
+  cursor: "pointer"
+});
+function CompletePage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { totalQuantity, countOfItemType, totalAmountAfterDiscount } = location.state ?? {};
+  reactExports.useEffect(() => {
+    if (!totalQuantity || !countOfItemType || !totalAmountAfterDiscount) {
+      const isConfirmed = confirm("비정상적인 접근입니다. 이전 페이지로 이동하시겠습니까?");
+      if (isConfirmed) {
+        navigate(-1);
+        return;
+      }
+      navigate("/");
+    }
+  }, [navigate]);
+  return /* @__PURE__ */ jsxs(Fragment, { children: [
+    /* @__PURE__ */ jsx$1(Header, { left: null }),
     /* @__PURE__ */ jsxs("main", { css: layoutCss, children: [
       /* @__PURE__ */ jsx$1("h1", { css: titleCss, children: "주문 확인" }),
       /* @__PURE__ */ jsxs("p", { css: descriptionCss, children: [
@@ -11775,11 +12307,11 @@ function OrderPage() {
       ] }),
       /* @__PURE__ */ jsx$1("p", { css: priceTitleCss, children: "총 결제 금액" }),
       /* @__PURE__ */ jsxs("p", { css: priceCss, children: [
-        totalAmount == null ? void 0 : totalAmount.toLocaleString(),
+        totalAmountAfterDiscount == null ? void 0 : totalAmountAfterDiscount.toLocaleString(),
         "원"
       ] })
     ] }),
-    /* @__PURE__ */ jsx$1(Button, { children: "결제하기" })
+    /* @__PURE__ */ jsx$1(Button, { onClick: () => navigate("/"), children: "장바구니로 돌아가기" })
   ] });
 }
 const layoutCss = css({
@@ -11809,11 +12341,12 @@ const priceCss = css({
   fontSize: "20px",
   fontWeight: "bold"
 });
-const basename = "/react-shopping-cart";
+const basename = "/react-shopping-cart/";
 function App() {
   return /* @__PURE__ */ jsx$1(ApiProvider, { children: /* @__PURE__ */ jsx$1(ToastProvider, { children: /* @__PURE__ */ jsx$1("div", { css: RoutesStyle, children: /* @__PURE__ */ jsx$1(BrowserRouter, { basename, children: /* @__PURE__ */ jsxs(Routes, { children: [
     /* @__PURE__ */ jsx$1(Route, { path: "/", element: /* @__PURE__ */ jsx$1(CartPage, {}) }),
-    /* @__PURE__ */ jsx$1(Route, { path: "/order", element: /* @__PURE__ */ jsx$1(OrderPage, {}) })
+    /* @__PURE__ */ jsx$1(Route, { path: "/order", element: /* @__PURE__ */ jsx$1(OrderPage, {}) }),
+    /* @__PURE__ */ jsx$1(Route, { path: "/complete", element: /* @__PURE__ */ jsx$1(CompletePage, {}) })
   ] }) }) }) }) });
 }
 const RoutesStyle = css({
