@@ -11773,7 +11773,7 @@ function CartPage() {
           "개의 상품이 담겨 있습니다."
         ] }),
         /* @__PURE__ */ jsx$1(CartItemList, { cartItems: cartItems == null ? void 0 : cartItems.content })
-      ] }) : /* @__PURE__ */ jsx$1("p", { children: "장바구니에 담은 상품이 없습니다." })
+      ] }) : /* @__PURE__ */ jsx$1("p", { css: emptyCartCss, children: "장바구니에 담은 상품이 없습니다." })
     ] })
   ] });
 }
@@ -11781,6 +11781,12 @@ const logoCss = css({
   color: "white",
   fontWeight: 800,
   fontSize: "20px"
+});
+const emptyCartCss = css({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  height: "100%"
 });
 function OrderItem({ item }) {
   const { id: cartItemId, product, quantity: cartQuantity } = item;
