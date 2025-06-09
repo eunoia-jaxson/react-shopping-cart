@@ -11884,8 +11884,9 @@ function isCouponDisabled(coupon, orderAmount, items, now = /* @__PURE__ */ new 
   }
   return false;
 }
+const MAX_COUPON_LENGTH = 2;
 const CouponItem = ({ coupon, orderAmount, items, selectedCoupons, handleCouponToggle }) => {
-  const isDisabled = isCouponDisabled(coupon, orderAmount, items) || selectedCoupons.length >= 2 && !selectedCoupons.includes(coupon);
+  const isDisabled = isCouponDisabled(coupon, orderAmount, items) || selectedCoupons.length >= MAX_COUPON_LENGTH && !selectedCoupons.includes(coupon);
   return /* @__PURE__ */ jsxs("div", { css: couponItemCss(isDisabled), children: [
     /* @__PURE__ */ jsxs("div", { css: TitleCss, children: [
       /* @__PURE__ */ jsx$1(CheckBox, { disabled: isDisabled, checked: selectedCoupons.includes(coupon), onChange: handleCouponToggle }),
@@ -12050,7 +12051,11 @@ const CouponModal = ({
   return /* @__PURE__ */ jsxs(ShoppingCartModal, { isOpen, handleClose, children: [
     /* @__PURE__ */ jsxs("div", { css: infoCss, children: [
       /* @__PURE__ */ jsx$1("img", { src: "./assets/info.svg", alt: "info icon" }),
-      /* @__PURE__ */ jsx$1("p", { css: fontSize12, children: "쿠폰은 최대 2개까지 사용할 수 있습니다." })
+      /* @__PURE__ */ jsxs("p", { css: fontSize12, children: [
+        "쿠폰은 최대 ",
+        MAX_COUPON_LENGTH,
+        "개까지 사용할 수 있습니다."
+      ] })
     ] }),
     coupons == null ? void 0 : coupons.map((coupon) => /* @__PURE__ */ jsx$1(
       CouponItem,
@@ -12102,7 +12107,7 @@ const useToggle = (initial = false) => {
 };
 function useDeliveryFee(baseFee) {
   const { value: includeSpecial, toggle } = useToggle(false);
-  const totalFee = includeSpecial ? baseFee + 3e3 : baseFee;
+  const totalFee = includeSpecial ? baseFee + DELIVERY.FEE : baseFee;
   return { includeSpecial, toggle, totalFee };
 }
 const getCoupons = async () => {
@@ -12122,7 +12127,7 @@ function getBestCoupons(coupons, orderAmount, items, deliveryFee, now = /* @__PU
     value: calculateCouponDiscount(c2, orderAmount, items, deliveryFee)
   }));
   withValue.sort((a, b2) => b2.value - a.value);
-  return withValue.slice(0, 2).map((x2) => x2.coupon);
+  return withValue.slice(0, MAX_COUPON_LENGTH).map((x2) => x2.coupon);
 }
 function useCouponSelector(orderAmount, items, baseDeliveryFee) {
   const { data: coupons = [] } = useCoupons();
@@ -12138,7 +12143,7 @@ function useCouponSelector(orderAmount, items, baseDeliveryFee) {
     if (isCouponDisabled(c2, orderAmount, items))
       return;
     setTemp(
-      (prev2) => prev2.some((x2) => x2.id === c2.id) ? prev2.filter((x2) => x2.id !== c2.id) : prev2.length < 2 ? [...prev2, c2] : prev2
+      (prev2) => prev2.some((x2) => x2.id === c2.id) ? prev2.filter((x2) => x2.id !== c2.id) : prev2.length < MAX_COUPON_LENGTH ? [...prev2, c2] : prev2
     );
   };
   const apply = () => {
