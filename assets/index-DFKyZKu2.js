@@ -12329,7 +12329,7 @@ function CompletePage() {
         countOfItemType,
         "종류의 상품 ",
         totalQuantity,
-        "개를 주문합니다.",
+        "개를 주문했습니다.",
         /* @__PURE__ */ jsx$1("br", {}),
         "최종 결제 금액을 확인해 주세요."
       ] }),
