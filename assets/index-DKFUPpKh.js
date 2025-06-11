@@ -11705,7 +11705,6 @@ function CartItemList({ cartItems }) {
       state: {
         totalQuantity,
         countOfItemType,
-        totalAmount,
         checkedItems,
         deliveryFee,
         orderAmount
@@ -11845,57 +11844,10 @@ function formatTime(start, end) {
   const endText = `${endPrefix}${e2.hour12}시` + (e2.minute > 0 ? ` ${e2.minute}분` : "");
   return `${startText}부터 ${endText}까지`;
 }
-function isFixedCoupon(c2) {
-  return c2.discountType === "fixed";
-}
-function isFreeShippingCoupon(c2) {
-  return c2.discountType === "freeShipping";
-}
-function isPercentageCoupon(c2) {
-  return c2.discountType === "percentage";
-}
-function isBuyXGetYCoupon(c2) {
-  return c2.discountType === "buyXgetY";
-}
-function isExpired(coupon, now = /* @__PURE__ */ new Date()) {
-  const today = now.toISOString().slice(0, 10);
-  return today > coupon.expirationDate;
-}
-function isBelowMinimum(coupon, orderAmount) {
-  return orderAmount < coupon.minimumAmount;
-}
-function isOutsideAvailableTime(coupon, now = /* @__PURE__ */ new Date()) {
-  const [sh2, sm, ss] = coupon.availableTime.start.split(":").map(Number);
-  const [eh2, em, es] = coupon.availableTime.end.split(":").map(Number);
-  const toSec = (h2, m2, s) => h2 * 3600 + m2 * 60 + s;
-  const nowSec = toSec(now.getHours(), now.getMinutes(), now.getSeconds());
-  return nowSec < toSec(sh2, sm, ss) || nowSec > toSec(eh2, em, es);
-}
-function isInsufficientQuantity(coupon, items) {
-  const threshold = coupon.buyQuantity + coupon.getQuantity;
-  return !items.some((item) => item.quantity >= threshold);
-}
-function isCouponDisabled(coupon, orderAmount, items, now = /* @__PURE__ */ new Date()) {
-  if (isExpired(coupon, now)) {
-    return true;
-  }
-  if ((isFixedCoupon(coupon) || isFreeShippingCoupon(coupon)) && isBelowMinimum(coupon, orderAmount)) {
-    return true;
-  }
-  if (isPercentageCoupon(coupon) && isOutsideAvailableTime(coupon, now)) {
-    return true;
-  }
-  if (isBuyXGetYCoupon(coupon) && isInsufficientQuantity(coupon, items)) {
-    return true;
-  }
-  return false;
-}
-const MAX_COUPON_LENGTH = 2;
-const CouponItem = ({ coupon, orderAmount, items, selectedCoupons, handleCouponToggle }) => {
-  const isDisabled = isCouponDisabled(coupon, orderAmount, items) || selectedCoupons.length >= MAX_COUPON_LENGTH && !selectedCoupons.includes(coupon);
-  return /* @__PURE__ */ jsxs("div", { css: couponItemCss(isDisabled), children: [
+const CouponItem = ({ coupon, isEnabled, isChecked, handleCouponToggle }) => {
+  return /* @__PURE__ */ jsxs("div", { css: couponItemCss(!isEnabled), children: [
     /* @__PURE__ */ jsxs("div", { css: TitleCss, children: [
-      /* @__PURE__ */ jsx$1(CheckBox, { disabled: isDisabled, checked: selectedCoupons.includes(coupon), onChange: handleCouponToggle }),
+      /* @__PURE__ */ jsx$1(CheckBox, { disabled: !isEnabled, checked: isChecked, onChange: handleCouponToggle }),
       /* @__PURE__ */ jsx$1("p", { css: TitleTextCss, children: coupon.description })
     ] }),
     /* @__PURE__ */ jsxs("p", { css: fontSize12$1, children: [
@@ -11990,7 +11942,7 @@ const useEscapeHandler = (handleClose) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleClose]);
 };
-const ShoppingCartModal = ({ children, isOpen, handleClose }) => {
+const Modal = ({ children, isOpen, handleClose }) => {
   useEscapeHandler(handleClose);
   if (!isOpen)
     return null;
@@ -12021,12 +11973,11 @@ const ModalFrame = css({
   maxHeight: "80dvh",
   borderRadius: "8px"
 });
-function calculateCouponDiscount(coupon, orderAmount, items, deliveryFee) {
+const MAX_COUPON_LENGTH = 2;
+function calculateCouponDiscount({ coupon, orderAmount, items }) {
   switch (coupon.discountType) {
     case "fixed":
       return coupon.discount;
-    case "freeShipping":
-      return deliveryFee;
     case "percentage":
       return Math.floor(orderAmount * (coupon.discount / 100));
     case "buyXgetY": {
@@ -12039,22 +11990,64 @@ function calculateCouponDiscount(coupon, orderAmount, items, deliveryFee) {
       return 0;
   }
 }
+function useTotalDiscount(selectedCoupons, orderAmount, items) {
+  return reactExports.useMemo(
+    () => selectedCoupons.reduce((sum, coupon) => sum + calculateCouponDiscount({ coupon, orderAmount, items }), 0),
+    [selectedCoupons, orderAmount, items]
+  );
+}
+function createCouponTypeGuard(type) {
+  return (c2) => c2.discountType === type;
+}
+const isFixedCoupon = createCouponTypeGuard("fixed");
+const isFreeShippingCoupon = createCouponTypeGuard("freeShipping");
+const isPercentageCoupon = createCouponTypeGuard("percentage");
+const isBuyXGetYCoupon = createCouponTypeGuard("buyXgetY");
+function isExpired(coupon, now = /* @__PURE__ */ new Date()) {
+  const today = now.toISOString().slice(0, 10);
+  return today > coupon.expirationDate;
+}
+function isBelowMinimum(coupon, orderAmount) {
+  return orderAmount < coupon.minimumAmount;
+}
+function isOutsideAvailableTime(coupon, now = /* @__PURE__ */ new Date()) {
+  const [sh2, sm, ss] = coupon.availableTime.start.split(":").map(Number);
+  const [eh2, em, es] = coupon.availableTime.end.split(":").map(Number);
+  const toSec = (h2, m2, s) => h2 * 3600 + m2 * 60 + s;
+  const nowSec = toSec(now.getHours(), now.getMinutes(), now.getSeconds());
+  return nowSec < toSec(sh2, sm, ss) || nowSec > toSec(eh2, em, es);
+}
+function isInsufficientQuantity(coupon, items) {
+  const threshold = coupon.buyQuantity + coupon.getQuantity;
+  return !items.some((item) => item.quantity >= threshold);
+}
+function isCouponEnabled({ coupon, orderAmount, items, now = /* @__PURE__ */ new Date() }) {
+  if (isExpired(coupon, now)) {
+    return false;
+  }
+  if ((isFixedCoupon(coupon) || isFreeShippingCoupon(coupon)) && isBelowMinimum(coupon, orderAmount)) {
+    return false;
+  }
+  if (isPercentageCoupon(coupon) && isOutsideAvailableTime(coupon, now)) {
+    return false;
+  }
+  if (isBuyXGetYCoupon(coupon) && isInsufficientQuantity(coupon, items)) {
+    return false;
+  }
+  return true;
+}
 const CouponModal = ({
   isOpen,
   handleClose,
   coupons,
   orderAmount,
   checkedItems,
-  totalDeliveryFee,
-  temp,
+  draftCoupons,
   toggleCoupon,
-  apply
+  handleApply
 }) => {
-  const tempTotalDiscount = reactExports.useMemo(
-    () => temp.reduce((sum, c2) => sum + calculateCouponDiscount(c2, orderAmount, checkedItems, totalDeliveryFee), 0),
-    [temp, orderAmount, checkedItems, totalDeliveryFee]
-  );
-  return /* @__PURE__ */ jsxs(ShoppingCartModal, { isOpen, handleClose, children: [
+  const tempTotalDiscount = useTotalDiscount(draftCoupons, orderAmount, checkedItems);
+  return /* @__PURE__ */ jsxs(Modal, { isOpen, handleClose, children: [
     /* @__PURE__ */ jsxs("div", { css: infoCss, children: [
       /* @__PURE__ */ jsx$1("img", { src: "./assets/info.svg", alt: "info icon" }),
       /* @__PURE__ */ jsxs("p", { css: fontSize12, children: [
@@ -12063,18 +12056,21 @@ const CouponModal = ({
         "개까지 사용할 수 있습니다."
       ] })
     ] }),
-    coupons == null ? void 0 : coupons.map((coupon) => /* @__PURE__ */ jsx$1(
-      CouponItem,
-      {
-        coupon,
-        orderAmount,
-        items: checkedItems,
-        selectedCoupons: temp,
-        handleCouponToggle: () => toggleCoupon(coupon)
-      },
-      coupon.id
-    )),
-    /* @__PURE__ */ jsxs(Button, { css: buttonCss, onClick: apply, children: [
+    /* @__PURE__ */ jsx$1("div", { css: couponListCss, children: coupons.length <= 0 ? /* @__PURE__ */ jsx$1("p", { children: "적용 가능한 쿠폰이 없어요" }) : coupons.map((coupon) => {
+      const isChecked = draftCoupons.includes(coupon);
+      const isEnabled = isCouponEnabled({ coupon, orderAmount, items: checkedItems }) && draftCoupons.length < MAX_COUPON_LENGTH || isChecked;
+      return /* @__PURE__ */ jsx$1(
+        CouponItem,
+        {
+          coupon,
+          isEnabled,
+          isChecked,
+          handleCouponToggle: () => toggleCoupon(coupon)
+        },
+        coupon.id
+      );
+    }) }),
+    /* @__PURE__ */ jsxs(Button, { css: buttonCss, onClick: handleApply, children: [
       "총 ",
       tempTotalDiscount.toLocaleString(),
       "원 할인쿠폰 사용하기"
@@ -12104,17 +12100,26 @@ const infoCss = css({
 const fontSize12 = css({
   fontSize: "12px"
 });
+const couponListCss = css({
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  width: "100%",
+  height: "50dvh",
+  overflow: "auto"
+});
 const useToggle = (initial = false) => {
   const [value, setValue] = reactExports.useState(initial);
-  const on = reactExports.useCallback(() => setValue(true), []);
-  const off = reactExports.useCallback(() => setValue(false), []);
-  const toggle = reactExports.useCallback(() => setValue((v2) => !v2), []);
+  const on = () => setValue(true);
+  const off = () => setValue(false);
+  const toggle = () => setValue((v2) => !v2);
   return { value, on, off, toggle };
 };
-function useDeliveryFee(baseFee) {
-  const { value: includeSpecial, toggle } = useToggle(false);
-  const totalFee = includeSpecial ? baseFee + DELIVERY.FEE : baseFee;
-  return { includeSpecial, toggle, totalFee };
+function useDeliveryFee(baseFee, isFreeShipping) {
+  const { value: isSpecialDelivery, toggle: toggleSpecialDelivery } = useToggle(false);
+  const totalFee = isFreeShipping ? 0 : isSpecialDelivery ? baseFee + DELIVERY.FEE : baseFee;
+  return { isSpecialDelivery, toggleSpecialDelivery, totalFee };
 }
 const getCoupons = async () => {
   const res = await fetch(URLS.COUPONS);
@@ -12126,65 +12131,91 @@ const getCoupons = async () => {
 const useCoupons = () => {
   return useApiContext({ fetchFn: getCoupons, key: "coupons" });
 };
-function getBestCoupons(coupons, orderAmount, items, deliveryFee, now = /* @__PURE__ */ new Date()) {
-  const enabled = coupons.filter((c2) => !isCouponDisabled(c2, orderAmount, items, now));
-  const withValue = enabled.map((c2) => ({
-    coupon: c2,
-    value: calculateCouponDiscount(c2, orderAmount, items, deliveryFee)
-  }));
-  withValue.sort((a, b2) => b2.value - a.value);
-  return withValue.slice(0, MAX_COUPON_LENGTH).map((x2) => x2.coupon);
+function getBestCoupons({ coupons, orderAmount, items, now }) {
+  return coupons.filter((coupon) => isCouponEnabled({ coupon, orderAmount, items, now })).map((coupon) => ({
+    coupon,
+    value: calculateCouponDiscount({ coupon, orderAmount, items })
+  })).sort((a, b2) => b2.value - a.value).slice(0, MAX_COUPON_LENGTH).map(({ coupon }) => coupon);
 }
-function useCouponSelector(orderAmount, items, baseDeliveryFee) {
-  const { data: coupons = [] } = useCoupons();
-  const [selected, setSelected] = reactExports.useState([]);
-  const [temp, setTemp] = reactExports.useState([]);
-  const { value: isOpen, on: open, off: close } = useToggle(false);
-  const handleOpen = () => {
-    setTemp(selected);
-    open();
+function useCouponSelector(orderAmount, items) {
+  const { data: coupons } = useCoupons();
+  const [selectedCoupons, setSelectedCoupons] = reactExports.useState([]);
+  const [draftCoupons, setDraftCoupons] = reactExports.useState([]);
+  const setCoupons = () => {
+    setDraftCoupons(selectedCoupons);
   };
-  const handleClose = () => close();
-  const toggleCoupon = (c2) => {
-    if (isCouponDisabled(c2, orderAmount, items))
+  const toggleCoupon = (coupon) => {
+    if (!isCouponEnabled({ coupon, orderAmount, items }))
       return;
-    setTemp(
-      (prev2) => prev2.some((x2) => x2.id === c2.id) ? prev2.filter((x2) => x2.id !== c2.id) : prev2.length < MAX_COUPON_LENGTH ? [...prev2, c2] : prev2
-    );
+    if (draftCoupons.some((x2) => x2.id === coupon.id)) {
+      setDraftCoupons((prev2) => prev2.filter((x2) => x2.id !== coupon.id));
+      return;
+    }
+    if (draftCoupons.length >= MAX_COUPON_LENGTH)
+      return;
+    setDraftCoupons((prev2) => [...prev2, coupon]);
   };
   const apply = () => {
-    setSelected(temp);
-    close();
+    setSelectedCoupons(draftCoupons);
   };
-  const totalDiscount = reactExports.useMemo(
-    () => selected.reduce((sum, c2) => sum + calculateCouponDiscount(c2, orderAmount, items, baseDeliveryFee), 0),
-    [selected, orderAmount, items, baseDeliveryFee]
-  );
   reactExports.useEffect(() => {
-    setSelected(getBestCoupons(coupons, orderAmount, items, baseDeliveryFee));
+    setSelectedCoupons(getBestCoupons({ coupons: coupons ?? [], orderAmount, items }));
   }, [coupons, orderAmount, items]);
   return {
     coupons,
-    selected,
-    temp,
-    isOpen,
-    totalDiscount,
-    handleOpen,
-    handleClose,
+    selectedCoupons,
+    draftCoupons,
     toggleCoupon,
+    setCoupons,
     apply
   };
+}
+function usePageStateGuard({
+  isValid,
+  redirectTo,
+  message = "비정상적인 접근입니다. 이전 페이지로 이동하시겠습니까?"
+}) {
+  const navigate = useNavigate();
+  reactExports.useEffect(() => {
+    if (!isValid) {
+      if (confirm(message)) {
+        redirectTo ? navigate(redirectTo) : navigate(-1);
+      }
+    }
+  }, [isValid, message, navigate, redirectTo]);
+}
+function useModalOpenClose({ setCoupons, apply }) {
+  const { value: isOpen, on: open, off: close } = useToggle(false);
+  const handleOpen = () => {
+    setCoupons();
+    open();
+  };
+  const handleApply = () => {
+    apply();
+    close();
+  };
+  return { isOpen, handleOpen, handleApply, close };
 }
 function OrderPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { totalQuantity, countOfItemType, totalAmount, checkedItems, deliveryFee, orderAmount } = location.state ?? {};
-  const { includeSpecial, toggle, totalFee } = useDeliveryFee(deliveryFee);
-  const { coupons, temp, isOpen, totalDiscount, handleOpen, handleClose, toggleCoupon, apply } = useCouponSelector(
+  const { totalQuantity, countOfItemType, checkedItems, deliveryFee, orderAmount } = location.state ?? {};
+  const isPageStateValid = totalQuantity !== void 0 || countOfItemType !== void 0 || checkedItems !== void 0 || orderAmount !== void 0 || deliveryFee !== void 0;
+  usePageStateGuard({
+    isValid: isPageStateValid,
+    redirectTo: "/",
+    message: "비정상적인 접근입니다. 장바구니로 이동하시겠습니까?"
+  });
+  const { coupons, selectedCoupons, draftCoupons, toggleCoupon, apply, setCoupons } = useCouponSelector(
     orderAmount,
-    checkedItems,
-    totalFee
+    checkedItems
   );
+  const totalDiscount = useTotalDiscount(selectedCoupons, orderAmount, checkedItems);
+  const { isSpecialDelivery, toggleSpecialDelivery, totalFee } = useDeliveryFee(
+    deliveryFee,
+    selectedCoupons.some((c2) => c2.discountType === "freeShipping")
+  );
+  const { isOpen, handleOpen, handleApply, close } = useModalOpenClose({ setCoupons, apply });
   const totalAmountAfterDiscount = orderAmount + totalFee - totalDiscount;
   const navigateToComplete = () => {
     navigate("/complete", {
@@ -12195,14 +12226,6 @@ function OrderPage() {
       }
     });
   };
-  reactExports.useEffect(() => {
-    if (!totalQuantity || !countOfItemType || !totalAmount || !checkedItems || !orderAmount || deliveryFee === void 0) {
-      const isConfirmed = confirm("비정상적인 접근입니다. 장바구니로 이동하시겠습니까?");
-      if (isConfirmed) {
-        navigate("/");
-      }
-    }
-  }, [navigate]);
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx$1(
       Header,
@@ -12222,20 +12245,20 @@ function OrderPage() {
         "최종 결제 금액을 확인해 주세요."
       ] }),
       /* @__PURE__ */ jsxs("div", { css: cartItemsAreaCss, children: [
-        /* @__PURE__ */ jsx$1("div", { css: cartItemsListCss, children: checkedItems.map((item) => /* @__PURE__ */ jsx$1(OrderItem, { item }, item.id)) }),
+        /* @__PURE__ */ jsx$1("div", { css: cartItemsListCss, children: checkedItems == null ? void 0 : checkedItems.map((item) => /* @__PURE__ */ jsx$1(OrderItem, { item }, item.id)) }),
         /* @__PURE__ */ jsx$1(Button, { css: couponApplyCss, onClick: handleOpen, children: "쿠폰 적용" }),
         /* @__PURE__ */ jsx$1("div", { css: priceTitleCss$1, children: "배송 정보" }),
         /* @__PURE__ */ jsxs("div", { css: allSelectCss, children: [
-          /* @__PURE__ */ jsx$1(CheckBox, { checked: includeSpecial, onChange: toggle }),
+          /* @__PURE__ */ jsx$1(CheckBox, { checked: isSpecialDelivery, onChange: toggleSpecialDelivery }),
           /* @__PURE__ */ jsx$1("p", { children: "제주도 및 도서 산간 지역" })
         ] }),
         /* @__PURE__ */ jsx$1(
           PriceArea,
           {
-            orderAmount,
-            deliveryFee: totalFee,
-            totalAmount: totalAmountAfterDiscount,
-            couponDiscount: totalDiscount
+            orderAmount: orderAmount ?? 0,
+            deliveryFee: totalFee ?? 0,
+            totalAmount: totalAmountAfterDiscount ?? 0,
+            couponDiscount: totalDiscount ?? 0
           }
         ),
         /* @__PURE__ */ jsx$1(Button, { onClick: navigateToComplete, children: "결제하기" })
@@ -12245,14 +12268,14 @@ function OrderPage() {
       CouponModal,
       {
         isOpen,
-        handleClose,
+        handleClose: close,
         coupons: coupons ?? [],
-        orderAmount,
-        checkedItems,
-        totalDeliveryFee: totalFee,
-        temp,
+        orderAmount: orderAmount ?? 0,
+        checkedItems: checkedItems ?? [],
+        totalDeliveryFee: totalFee ?? 0,
+        draftCoupons,
         toggleCoupon,
-        apply
+        handleApply
       }
     )
   ] });
@@ -12293,16 +12316,10 @@ function CompletePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { totalQuantity, countOfItemType, totalAmountAfterDiscount } = location.state ?? {};
-  reactExports.useEffect(() => {
-    if (!totalQuantity || !countOfItemType || !totalAmountAfterDiscount) {
-      const isConfirmed = confirm("비정상적인 접근입니다. 이전 페이지로 이동하시겠습니까?");
-      if (isConfirmed) {
-        navigate(-1);
-        return;
-      }
-      navigate("/");
-    }
-  }, [navigate]);
+  const isPageStateValid = totalQuantity !== void 0 || countOfItemType !== void 0 || totalAmountAfterDiscount !== void 0;
+  usePageStateGuard({
+    isValid: isPageStateValid
+  });
   return /* @__PURE__ */ jsxs(Fragment, { children: [
     /* @__PURE__ */ jsx$1(Header, { left: null }),
     /* @__PURE__ */ jsxs("main", { css: layoutCss, children: [
